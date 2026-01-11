@@ -19,7 +19,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen pt-4 w-full mx-auto max-w-xl">
+    <div className="min-h-screen pt-4 w-full mx-auto px-4">
       {sampleFeature && <TaskForm />}
       {taskList && <TaskList />}
     </div>
