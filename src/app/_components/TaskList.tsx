@@ -1,90 +1,85 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
-import { Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 
+import {
+  closestCenter,
+  DndContext,
+  DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+
+import SortableTaskList from "./SortableTaskList";
+
 export default function TaskList() {
   const tasks = useQuery(api.tasks.get);
-  const isCompletedToggle = useMutation(api.tasks.toggleTaskCompletion);
-  const deleteTask = useMutation(api.tasks.deleteTask);
-  const updateTask = useMutation(api.tasks.updateTask);
+  const updateTaskOrder = useMutation(api.tasks.updateTaskOrder);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = tasks?.findIndex((task) => task._id === active.id);
+      const newIndex = tasks?.findIndex((task) => task._id === over.id);
+
+      if (oldIndex !== undefined && newIndex !== undefined && tasks) {
+        const reorderedTasks = arrayMove(tasks, oldIndex, newIndex);
+        // Update the order in the database. Assuming tasks have an 'order' field.
+        // For each task, call updateTaskOrder({ id: task._id, order: index });
+        // You need to implement this mutation in your Convex backend.
+        reorderedTasks.forEach((task, index) => {
+          updateTaskOrder({ id: task._id, order: index });
+        });
+      }
+    }
+  }
+
   return (
     <ul className="w-full mx-auto max-w-xl border h-[calc(100vh-8rem)] mt-4 overflow-y-auto flex flex-col gap-y-2 p-4 rounded-md">
-      {tasks?.map(({ _id, text, isCompleted }) => (
-        <li
-          className={cn(
-            "border py-2 px-4 flex items-center justify-between gap-x-4 rounded-md",
-            isCompleted && "bg-green-100"
-          )}
-          key={_id}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={tasks?.map((task) => task._id) || []}
+          strategy={verticalListSortingStrategy}
         >
-          <Checkbox
-            id={`task-${_id}`}
-            checked={isCompleted}
-            onCheckedChange={() => isCompletedToggle({ id: _id })}
-          />
-          {editingId === _id ? (
-            <Input
-              value={editingText}
-              onChange={(e) => setEditingText(e.target.value)}
-              onBlur={() => {
-                updateTask({ id: _id, text: editingText });
-                setEditingId(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  updateTask({ id: _id, text: editingText });
-                  setEditingId(null);
-                } else if (e.key === "Escape") {
-                  setEditingId(null);
-                }
-              }}
-              className="flex-1 capitalize"
-              autoFocus
+          {tasks?.map(({ _id, text, isCompleted }) => (
+            <SortableTaskList
+              key={_id}
+              _id={_id}
+              text={text}
+              isCompleted={isCompleted}
+              editingId={editingId}
+              setEditingId={setEditingId}
+              editingText={editingText}
+              setEditingText={setEditingText}
             />
-          ) : (
-            <span
-              className={cn(
-                "flex-1 capitalize",
-                isCompleted && "line-through text-muted-foreground"
-              )}
-            >
-              {text}
-            </span>
-          )}
-          <div className="flex gap-x-2">
-            <Button
-              variant="outline"
-              size="icon-sm"
-              className="rounded-full cursor-pointer"
-              onClick={() => {
-                setEditingId(_id);
-                setEditingText(text);
-              }}
-            >
-              <Pencil className="text-border cursor-pointer" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              className="rounded-full cursor-pointer"
-              onClick={() => deleteTask({ id: _id })}
-            >
-              <Trash2 className="text-border cursor-pointer" />
-            </Button>
-          </div>
-        </li>
-      ))}
+          ))}
+        </SortableContext>
+      </DndContext>
     </ul>
   );
 }
