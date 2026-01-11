@@ -20,6 +20,10 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 
+import {
+  restrictToVerticalAxis,
+  restrictToWindowEdges,
+} from "@dnd-kit/modifiers";
 import SortableTaskList from "./SortableTaskList";
 
 export default function TaskList() {
@@ -56,11 +60,12 @@ export default function TaskList() {
   }
 
   return (
-    <ul className="w-full mx-auto max-w-xl border h-[calc(100vh-8rem)] mt-4 overflow-y-auto flex flex-col gap-y-2 p-4 rounded-md">
+    <ul className="w-full max-w-xl sm:mx-auto border h-[calc(100vh-8rem)] mt-4 overflow-y-auto flex flex-col gap-y-2 p-4 rounded-md">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
+        modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
       >
         <SortableContext
           items={tasks?.map((task) => task._id) || []}

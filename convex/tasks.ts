@@ -1,5 +1,10 @@
+import { taskFormSchema } from "@/validation/task-form-schema";
+import { NoOp } from "convex-helpers/server/customFunctions";
+import { zCustomMutation } from "convex-helpers/server/zod4";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+
+const zMutation = zCustomMutation(mutation, NoOp);
 
 export const get = query({
   args: {},
@@ -9,8 +14,8 @@ export const get = query({
 });
 
 // Create a new task with the given text
-export const createTask = mutation({
-  args: { task: v.string() },
+export const createTask = zMutation({
+  args: taskFormSchema.shape,
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("tasks")
