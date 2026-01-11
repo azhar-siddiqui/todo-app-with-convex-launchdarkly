@@ -4,7 +4,7 @@ import { mutation, query } from "./_generated/server";
 export const get = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("tasks").collect();
+    return await ctx.db.query("tasks").withIndex("by_order").collect();
   },
 });
 
@@ -12,9 +12,19 @@ export const get = query({
 export const createTask = mutation({
   args: { task: v.string() },
   handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("tasks")
+      .withIndex("by_order")
+      .collect();
+    const nextOrder =
+      existing.length === 0
+        ? 0
+        : Math.max(...existing.map((t) => t.order ?? -1)) + 1;
+
     const newTaskId = await ctx.db.insert("tasks", {
       text: args.task,
       isCompleted: false,
+      order: nextOrder,
     });
     return newTaskId;
   },
@@ -49,6 +59,19 @@ export const updateTask = mutation({
     }
     await ctx.db.patch("tasks", args.id, {
       text: args.text,
+    });
+  },
+});
+
+export const updateTaskOrder = mutation({
+  args: { id: v.id("tasks"), order: v.number() },
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get("tasks", args.id);
+    if (!task) {
+      throw new Error("Task not found");
+    }
+    await ctx.db.patch("tasks", args.id, {
+      order: args.order,
     });
   },
 });
